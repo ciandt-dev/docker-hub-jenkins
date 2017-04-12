@@ -1,20 +1,22 @@
-## CI&T Jenkins Docker image(s)
+## CI&T Jenkins Docker base image
 
-This is the source code of [CI&T Jenkins Docker image(s)](https://hub.docker.com/r/ciandt/jenkins/) hosted at [Docker hub](https://hub.docker.com/).
+This is the source code of [CI&T Jenkins Docker image](https://hub.docker.com/r/ciandt/jenkins/) hosted at [Docker hub](https://hub.docker.com/).
 
-It contents the source code for building the publicly accessible Docker image(s) and some scripts to easy maintain and update its code.
+It contents the source code for building the publicly accessible Docker image and some scripts to easy maintain and update its code.
 
-By utilizing Docker technologies, that already provides an easy way of spinning up new environments along with its dependencies. This image can speed up developers which different backgrounds and equipments to create quickly a new local environment allowing them to easily integrate in automated tests and deployment pipelines.
+Keeping it short,  this image utilizes [Jenkins official Docker image](https://hub.docker.com/_/jenkins/) as a source, then copy plugins (listed below), add scripts and configure it to run only HTTPS with a self-signed SSL certificate.
 
-At this moment we have the following version(s)
+* * *
 
-## [2.19.1](#jenkins-2.19.1)
+## [*Requirements*](#requirements)
 
-This Docker image intends to be a containerized baseline solution for Jenkins with pre-loaded plugins and scripts for easy deploy and management.
+Before proceeding please check the required packages below:
 
-The source code is available under GPLv3 at Github in this [link](https://github.com/ciandt-dev/docker-hub-jenkins).
-
-Basically, this image utilizes [Jenkins official Docker image](https://hub.docker.com/_/jenkins/) as a source, then installs plugins (listed below), add scripts and configure it to run only HTTPS with a self-signed SSL certificate.
+ - docker engine => 1.12
+ - make
+ - grep
+ - curl
+ - jq
 
 * * *
 
@@ -44,41 +46,102 @@ These are the plugins bundled.
 
 * * *
 
-### [*Quick Start*](#quickstart)
+## [How-to](#how-to)
 
-__Download the image__
+There is a Makefile in the root of the repository with all actions that can be performed.
 
-```
-docker pull ciandt/jenkins:2.19.1
-```
-
-__Run a container__
+#### [Build](#how-to-build)
 
 ```
-docker run \
-  --name \
-    myContainer \
-  --detach \
-    ciandt/jenkins:2.19.1
+make build
 ```
 
-__Check running containers__
+#### [Run](#how-to-run)
 
 ```
-docker ps --all
+make run
 ```
 
- * * *
+#### [Test](#how-to-test)
 
-## [*Requirements*](#requirements)
+```
+make test
+```
 
-Before proceeding please check the required packages below:
+#### [Debug](#how-to-debug)
 
- - docker engine => 1.12
- - make
- - grep
- - curl
- - jq
+```
+make debug
+```
+
+#### [Shell access](#how-to-shell)
+
+```
+make shell
+```
+
+#### [Clean](#how-to-clean)
+
+```
+make clean
+```
+
+#### [Clean All](#how-to-clean-all)
+
+```
+make clean-all
+```
+
+#### [All - Build, run and test](#how-to-all)
+
+```
+make all
+```
+
+Or just
+
+```
+make
+```
+
+* * *
+
+## [Build process](#build-process)
+
+There are some required parameters that are already pre-defined for the build step, if you need to modify, please refer to;
+
+> __"# receive arguments, otherwise use default"__ section in __app/Dockerfile__
+
+Quick explanation, all of them are [ARG](https://docs.docker.com/engine/reference/builder/#/arg)s that are converted to [ENV](https://docs.docker.com/engine/reference/builder/#/env)s during Dockerfile build process.
+
+* * *
+
+## [.env](#env)
+
+Thinking in a multi-stage environment, a file name __.env__ is provided at repository root and it is used to define which set of ENV variables are going to load-up during Docker run.
+
+Default value is:
+
+> __ENVIRONMENT="local"__
+
+It is possible to change to any desired string value. This is just an ordinary alias to load one of configuration files that can exist in __conf__ folder.
+
+Example, if you change it to:
+
+> ENVIRONMENT="__dev__"
+
+When you run the container it will load variables from:
+
+> conf/jenkins.__dev__.env
+
+It is an easy way to inject new variables when developing a new script.
+
+* * *
+
+## [Run process](#run-process)
+
+As described in .env section, run will load environment variables from a file.
+This approach is better describe in official Docker docs in the [link](https://docs.docker.com/compose/env-file/).
 
 * * *
 
@@ -113,119 +176,6 @@ make configure-https
 ```
 
 It will gather required variables from environment, execute and produce the according output.
-
-* * *
-
-## [Running standalone](#running-standalone)
-
-The simplest way of running the container without any modification
-
-```
-docker run ciandt/jenkins:2.19.1
-```
-
-* * *
-
-## [Customizing](#customizing)
-
-As intended, you can take advantage from this image to build your own and already configure everything that a project requires.
-
-Just to have an example, a Dockerfile sample downstream this image and configuring Jenkins to use LDAP (Microsoft Active Directory) authentication.
-
-```
-FROM ciandt/jenkins:2.19.1
-
-## configure-ldap
-# define environment variables
-ENV LDAP_REALM=contoso.local
-ENV LDAP_SERVER=server.contoso.local
-ENV LDAP_PORT=3268
-ENV LDAP_USER=contoso.local\weird_admin
-ENV LDAP_PASSWORD=MyStrongPassword1
-
-# configure Sonar LDAP
-RUN cd /root/ciandt && \
-    make configure-ldap
-```
-
-* * *
-
-## [Running in Docker-Compose](#running-docker-compose)
-
-Since a project is not going to use solely Jenkins, it may need a Docker-Compose file.
-
-Just to exercise, follow an example of __Jenkins__ running behind a __Nginx__ proxy. Create a new folder and fill with these 3 files and respective folders;
-
-#### [__conf/jenkins.local.env__](#sonar-env)
-
-```
-## configure-ldap
-LDAP_REALM=contoso.local
-LDAP_SERVER=server.contoso.local
-LDAP_PORT=3268
-LDAP_USER=contoso.local\weird_admin
-LDAP_PASSWORD=MyStrongPassword1
-
-## Nginx proxy configuration
-# https://hub.docker.com/r/jwilder/nginx-proxy/
-VIRTUAL_HOST=jenkins.local
-VIRTUAL_PORT=8080
-VIRTUAL_PROTO=https
-```
-
-#### [__app/jenkins/Dockerfile__](#dockerfile)
-
-```
-FROM ciandt/jenkins:2.19.1
-
-# configure Jenkins LDAP
-RUN cd /root/ciandt && \
-    make configure-ldap
-```
-
-#### [__docker-compose.yml__](#docker-compose)
-
-```
-jenkins:
-  build: ./jenkins
-  container_name: jenkins
-  env_file: ../conf/jenkins.local.env
-
-nginx:
-  image: jwilder/nginx-proxy:latest
-  container_name: nginx
-  volumes:
-    - /var/run/docker.sock:/tmp/docker.sock:ro
-  ports:
-    - "80:80"
-    - "443:443"
-```
-
-Then just spin-up your Docker-Compose with the command:
-
-```
-docker-compose up -d
-```
-
-Inspect Nginx container IP address:
-
-```
-docker inspect --format \
-              "{{.NetworkSettings.Networks.bridge.IPAddress }}" \
-              "nginx"
-```
-
-Use the IP address to update __hosts__ file. Let's suppose that was 172.17.0.2.
-
-Then, add an entry to __/etc/hosts__.
-> 172.17.0.2 jenkins.local
-
-And now, try to access in the browser
-> http://jenkins.local
-
-Voilà!
-Your project now have Nginx and Jenkins up and running.
-\\o/
 
 * * *
 
